@@ -1,115 +1,3 @@
-// const questions = [
-//   {
-//     question: "Which bird cannot fly?",
-//     answers: [
-//       { text: "Chicken", correct: false },
-//       { text: "Duck", correct: false },
-//       { text: "Ostrich", correct: true },
-//       { text: "Pigeon", correct: false },
-//     ],
-//   },
-//   {
-//     question: "What is the capital of France?",
-//     answers: [
-//       { text: "Berlin", correct: false },
-//       { text: "Madrid", correct: false },
-//       { text: "Paris", correct: true },
-//       { text: "Lisbon", correct: false },
-//     ],
-//   },
-//   {
-//     question: "Who painted the Mona Lisa?",
-//     answers: [
-//       { text: "Vincent Van Gogh", correct: false },
-//       { text: "Pablo Picasso", correct: false },
-//       { text: "Leonardo da Vinci", correct: true },
-//       { text: "Michelangelo", correct: false },
-//     ],
-//   },
-// ];
-
-// const questionElement = document.getElementById("question");
-// const answerButtons = document.getElementById("answer-buttons");
-// const nextButton = document.getElementById("next-btn");
-
-// let currentQuestionIndex = 0;
-// let score = 0;
-
-// function startQuiz() {
-//   currentQuestionIndex = 0;
-//   score = 0;
-//   nextButton.innerText = "Next";
-//   showQuestion();
-// }
-
-// function showQuestion() {
-//   resetState();
-//   let currentQuestion = questions[currentQuestionIndex];
-//   questionElement.innerText = currentQuestion.question;
-
-//   currentQuestion.answers.forEach((answer) => {
-//     const button = document.createElement("button");
-//     button.innerText = answer.text;
-//     button.classList.add("btn");
-//     if (answer.correct) {
-//       button.dataset.correct = answer.correct;
-//     }
-//     button.addEventListener("click", selectAnswer);
-//     answerButtons.appendChild(button);
-//   });
-// }
-
-// function resetState() {
-//   nextButton.style.display = "none";
-//   while (answerButtons.firstChild) {
-//     answerButtons.removeChild(answerButtons.firstChild);
-//   }
-// }
-
-// function selectAnswer(e) {
-//   const selectedBtn = e.target;
-//   const correct = selectedBtn.dataset.correct === "true";
-//   if (correct) {
-//     score++;
-//     selectedBtn.style.background = "#4CAF50"; // green
-//   } else {
-//     selectedBtn.style.background = "#E63946"; // red
-//   }
-
-//   Array.from(answerButtons.children).forEach((button) => {
-//     if (button.dataset.correct === "true") {
-//       button.style.background = "#4CAF50";
-//     }
-//     button.disabled = true;
-//   });
-
-//   nextButton.style.display = "block";
-// }
-
-// function showScore() {
-//   resetState();
-//   questionElement.innerText = `You scored ${score} out of ${questions.length}! 🎉`;
-//   nextButton.innerText = "Play Again";
-//   nextButton.style.display = "block";
-// }
-
-// function handleNextButton() {
-//   currentQuestionIndex++;
-//   if (currentQuestionIndex < questions.length) {
-//     showQuestion();
-//   } else {
-//     showScore();
-//   }
-// }
-
-// nextButton.addEventListener("click", () => {
-//   if (currentQuestionIndex < questions.length) {
-//     handleNextButton();
-//   } else {
-//     startQuiz();
-//   }
-// });
-
 // startQuiz();
 const questions = [
   {
@@ -500,8 +388,6 @@ const questions = [
     ],
   },
 ];
-
-
 const questionElement = document.getElementById("question");
 const answerButtons = document.getElementById("answer-buttons");
 const nextButton = document.getElementById("next-btn");
@@ -510,6 +396,16 @@ let currentQuestionIndex = 0;
 let currentLevel = 1;
 let score = 0;
 let userAnswers = [];
+function loadCategory() {
+  const selected = document.getElementById("category-select").value;
+  fetch(`${selected}-questions.json`)
+    .then(res => res.json())
+    .then(data => {
+      questions = data;
+      startQuiz();
+    });
+}
+
 
 function startQuiz() {
   currentQuestionIndex = 0;
@@ -522,10 +418,9 @@ function startQuiz() {
 
 function showQuestion() {
   resetState();
+  updateProgress();
   const currentQuestion = questions[currentQuestionIndex];
-  questionElement.innerText = `Level ${currentLevel} - Q${
-    (currentQuestionIndex % 10) + 1
-  }: ${currentQuestion.question}`;
+  questionElement.innerText = `Level ${currentLevel} - Q${(currentQuestionIndex % 10) + 1}: ${currentQuestion.question}`;
 
   currentQuestion.answers.forEach((answer) => {
     const button = document.createElement("button");
@@ -561,8 +456,10 @@ function selectAnswer(e) {
   if (correct) {
     score++;
     selectedBtn.style.background = "#4CAF50";
+    playSound("correct");
   } else {
     selectedBtn.style.background = "#E63946";
+    playSound("wrong");
   }
 
   Array.from(answerButtons.children).forEach((button) => {
@@ -570,6 +467,7 @@ function selectAnswer(e) {
       button.style.background = "#4CAF50";
     }
     button.disabled = true;
+    button.classList.add("answered");
   });
 
   nextButton.style.display = "block";
@@ -578,11 +476,7 @@ function selectAnswer(e) {
 function handleNextButton() {
   currentQuestionIndex++;
 
-  // Check if level completed
-  if (
-    currentQuestionIndex % 10 === 0 &&
-    currentQuestionIndex < questions.length
-  ) {
+  if (currentQuestionIndex % 10 === 0 && currentQuestionIndex < questions.length) {
     showLevelComplete();
   } else if (currentQuestionIndex < questions.length) {
     showQuestion();
@@ -593,7 +487,10 @@ function handleNextButton() {
 
 function showLevelComplete() {
   resetState();
-  questionElement.innerHTML = `🎉 Level ${currentLevel} Completed!`;
+  const levelStart = currentQuestionIndex - 10;
+  const levelScore = userAnswers.slice(levelStart, currentQuestionIndex).filter(a => a.isCorrect).length;
+
+  questionElement.innerHTML = `🎉 Level ${currentLevel} Completed!<br>You scored ${levelScore}/10. ${levelScore >= 8 ? "Great job!" : "Keep going!"}`;
   currentLevel++;
   nextButton.innerText = "Next Level";
   nextButton.style.display = "block";
@@ -610,19 +507,28 @@ function showScoreAndCorrections() {
   userAnswers.forEach((answerObj, index) => {
     const p = document.createElement("p");
     p.innerHTML = `<strong>Q${index + 1}:</strong> ${answerObj.question}<br>
-                   <strong>Your answer:</strong> ${answerObj.selected} ${
-      answerObj.isCorrect ? "✅" : "❌"
-    }<br>
-                   <strong>Correct answer:</strong> ${
-                     answerObj.correctAnswer
-                   }<br>`;
+                   <strong>Your answer:</strong> ${answerObj.selected} ${answerObj.isCorrect ? "✅" : "❌"}<br>
+                   <strong>Correct answer:</strong> ${answerObj.correctAnswer}<br>`;
     correctionsDiv.appendChild(p);
   });
 
   answerButtons.appendChild(correctionsDiv);
-
   nextButton.innerText = "Play Again";
   nextButton.style.display = "block";
+}
+
+function updateProgress() {
+  const progressBar = document.getElementById("progress-bar");
+  if (progressBar) {
+    const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+    progressBar.style.width = `${progress}%`;
+  }
+}
+
+function playSound(type) {
+  const audio = new Audio(type === "correct" ? "correct.mp3" : "wrong.mp3");
+  audio.volume = 0.2;
+  audio.play();
 }
 
 nextButton.addEventListener("click", () => {
